@@ -1,0 +1,45 @@
+{
+  "server": {
+    "http_port": 3000,
+    "https_port": 3443,
+    "enable_https": false,
+    "ssl": {
+      "cert": "./certs/server.crt",
+      "key": "./certs/server.key"
+    }
+  },
+  "logging": {
+    "level": "info",
+    "log_dir": "./logs",
+    "log_requests": true,
+    "log_errors": true,
+    "max_file_size": "10m",
+    "max_files": 5
+  },
+  "routes": [
+    {
+      "context": "/api",
+      "target": "http://localhost:4000",
+      "description": "Route /api/* → backend API server on port 4000",
+      "change_origin": true,
+      "path_rewrite": { "^/api": "" }
+    },
+    {
+      "context": "/static",
+      "target": "http://localhost:5000",
+      "description": "Route /static/* → static file server on port 5000",
+      "change_origin": true
+    },
+    {
+      "context": "/",
+      "target": "http://localhost:8080",
+      "description": "Catch-all: everything else → main app on port 8080",
+      "change_origin": true
+    }
+  ],
+  "rate_limit": {
+    "enabled": false,
+    "window_ms": 60000,
+    "max_requests": 100
+  }
+}
