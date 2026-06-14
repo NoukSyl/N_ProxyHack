@@ -1,8 +1,9 @@
 // ============================================================
 // src/proxy.js
 // Builds Express route handlers from config.json routes[].
-// Each route gets its own createProxyMiddleware instance so
-// configs stay isolated and logs stay specific.
+// Each route reads its target URL from an environment variable
+// (target_env) so you can configure destinations in Railway
+// without touching code.
 // ============================================================
 
 const { createProxyMiddleware } = require('http-proxy-middleware');
@@ -21,14 +22,24 @@ function registerRoutes(app, routes, logger) {
   }
 
   routes.forEach((route) => {
-    const { context, target, change_origin, path_rewrite, description } = route;
+    const { context, target_env, change_origin, path_rewrite, description } = route;
 
-    if (!context || !target) {
-      logger.error(`Invalid route — missing context or target: ${JSON.stringify(route)}`);
+    if (!context || !target_env) {
+      logger.error(`Invalid route — missing context or target_env: ${JSON.stringify(route)}`);
       return;
     }
 
-    logger.info(`Registering route: ${context} → ${target}  (${description || 'no desc'})`);
+    // Resolve target URL from the environment variable named in target_env
+    // e.g. target_env: "TARGET_API" → reads process.env.TARGET_API
+    const target = process.env[target_env];
+
+    if (!target) {
+      // Env var not set — skip this route with a loud warning
+      logger.warn(`Skipping route "${context}" — env var "${target_env}" is not set. Set it in Railway Variables.`);
+      return;
+    }
+
+    logger.info(`Registering route: ${context} → ${target}  [via ${target_env}]  (${description || 'no desc'})`);
 
     // Build the http-proxy-middleware options
     const proxyOptions = {
@@ -40,13 +51,11 @@ function registerRoutes(app, routes, logger) {
 
       // ── Event hooks ──────────────────────────────────────
 
-      // Fires right before the proxied request is sent upstream
       on: {
+        // Fires right before the proxied request is sent upstream
         proxyReq: (proxyReq, req, _res) => {
-          // Stamp a custom header so upstream servers know the traffic came through us
           proxyReq.setHeader('X-Proxy-By', 'lo-reverse-proxy');
           proxyReq.setHeader('X-Forwarded-For', req.ip || req.socket.remoteAddress);
-
           logger.debug(`→ Forwarding ${req.method} ${req.originalUrl} to ${target}`);
         },
 
@@ -61,7 +70,7 @@ function registerRoutes(app, routes, logger) {
           });
         },
 
-        // Fires when the proxy itself throws (network error, refused connection, etc.)
+        // Fires when proxy can't reach upstream
         error: (err, req, res) => {
           logger.error({
             type:    'proxy_error',
@@ -71,7 +80,6 @@ function registerRoutes(app, routes, logger) {
             message: err.message,
           });
 
-          // Don't crash — send a clean 502 back to the client
           if (!res.headersSent) {
             res.status(502).json({
               error:   'Bad Gateway',
@@ -83,7 +91,6 @@ function registerRoutes(app, routes, logger) {
       },
     };
 
-    // Mount this route on the Express app
     app.use(context, createProxyMiddleware(proxyOptions));
   });
 }

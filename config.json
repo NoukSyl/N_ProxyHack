@@ -19,21 +19,21 @@
   "routes": [
     {
       "context": "/api",
-      "target": "http://localhost:4000",
-      "description": "Route /api/* → backend API server on port 4000",
+      "target_env": "TARGET_API",
+      "description": "Route /api/* → set TARGET_API in Railway env vars",
       "change_origin": true,
       "path_rewrite": { "^/api": "" }
     },
     {
       "context": "/static",
-      "target": "http://localhost:5000",
-      "description": "Route /static/* → static file server on port 5000",
+      "target_env": "TARGET_STATIC",
+      "description": "Route /static/* → set TARGET_STATIC in Railway env vars",
       "change_origin": true
     },
     {
       "context": "/",
-      "target": "http://localhost:8080",
-      "description": "Catch-all: everything else → main app on port 8080",
+      "target_env": "TARGET_APP",
+      "description": "Catch-all → set TARGET_APP in Railway env vars",
       "change_origin": true
     }
   ],
