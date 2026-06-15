@@ -1,5 +1,2 @@
-node_modules/
-logs/
+node_modules
 .env
-certs/*.key
-certs/*.crt
